@@ -11,6 +11,8 @@ Usage:
   end
 =end
   class ShortenUrlInterceptor
+    include Rails.application.routes.url_helpers
+    include Shortener::ShortenerHelper
 
     DEFAULT_NOT_SHORTEN = [ 'twitter\.com/',
                             'facebook\.com/',
@@ -23,7 +25,9 @@ Usage:
     def initialize(opts = {})
       @not_shorten = opts[:not_shorten] || DEFAULT_NOT_SHORTEN
       @length_threshold = opts[:length_threshold] || DEFAULT_LENGTH_THRESHOLD
-      @base_url = opts[:base_url] || ShortenUrlInterceptor.infer_base_url
+      @base_url || ShortenUrlInterceptor.infer_base_url
+      @url_options = opts[:url_options].presence || {}
+      @url_options[:host] ||= @base_url
     end
 
     def delivering_email(email)
@@ -40,8 +44,7 @@ Usage:
 
     def shorten_url(url)
       if url.length > @length_threshold && ! @not_shorten.any?{|r| r =~ url}
-        short_url = Shortener::ShortenedUrl.generate!(url)
-        File.join(@base_url, short_url.unique_key)
+        short_url(url, url_options: @url_options)
       else
         url
       end
@@ -56,7 +59,7 @@ Usage:
       if host.blank?
         raise "Please supply :base_url for ShortenUrlInterceptor or define default_url_options for mailer"
       else
-        "http://#{host}/"
+        host
       end
     end
   end
